@@ -1,0 +1,28 @@
+[project]
+name = "ai-video-enhancer"
+version = "0.1.0"
+description = "Python ML worker for AI Video Enhancer"
+requires-python = ">=3.12"
+dependencies = [
+    "opencv-python",
+    "imageio-ffmpeg",
+    "ffmpeg-python",
+    "numpy",
+    "pillow",
+    "scikit-image",
+    "requests",
+    "tqdm",
+]
+
+[project.optional-dependencies]
+ml = [
+    "torch",
+    "torchvision",
+]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]

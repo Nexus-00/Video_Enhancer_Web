@@ -1,0 +1,16 @@
+{
+  "name": "ai-video-enhancer",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run scripts/setup-and-start.ts",
+    "web:dev": "cd web && bun run dev",
+    "setup": "bun run scripts/setup.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "dependencies": {
+    "bun-types": "latest"
+  }
+}

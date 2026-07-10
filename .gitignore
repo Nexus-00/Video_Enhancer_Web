@@ -1,0 +1,72 @@
+# Dependencies
+node_modules/
+web/node_modules/
+python/.venv/
+python/venv/
+
+# Build output
+web/.output/
+web/dist/
+web/.tanstack-start/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Data files (generated at runtime)
+data/jobs.db
+data/jobs.db-*
+data/uploads/*
+data/processing/*
+data/outputs/*
+!data/uploads/.gitkeep
+!data/processing/.gitkeep
+!data/outputs/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Playwright
+web/test-results/
+web/playwright-report/
+web/blob-report/
+web/playwright/.cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Backup files
+*.bak
+*.bak2
+*.bak3
