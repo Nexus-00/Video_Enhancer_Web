@@ -4,6 +4,9 @@ web/node_modules/
 python/.venv/
 python/venv/
 
+# Python weights
+python/weights/
+
 # Build output
 web/.output/
 web/dist/
