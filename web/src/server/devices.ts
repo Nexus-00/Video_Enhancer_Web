@@ -1,16 +1,16 @@
-import { createServerFn } from "@tanstack/react-start"
 import { spawn } from "node:child_process"
-import { dirname, join, resolve } from "node:path"
-import { fileURLToPath } from "node:url"
+import { join, resolve } from "node:path"
 import type { DeviceInfo } from "~/types"
-const __dirname = dirname(fileURLToPath(import.meta.url))
 
-const pythonDir = resolve(__dirname, "..", "..", "..", "python")
+const webDir = process.cwd()
+const root = resolve(webDir, "..")
+const pythonDir = join(root, "python")
+const pythonExe = process.platform === "win32" ? join(pythonDir, ".venv", "Scripts", "python.exe") : join(pythonDir, ".venv", "bin", "python")
 
-export const getDevices = createServerFn({ method: "GET" }).handler(async (): Promise<DeviceInfo[]> => {
+export async function detectDevices(): Promise<DeviceInfo[]> {
   const proc = spawn(
-    "uv",
-    ["run", "python", "-c", "import json, sys; from src.utils.devices import list_devices; print(json.dumps(list_devices()))"],
+    pythonExe,
+    ["-c", "import json, sys; from src.utils.devices import list_devices; print(json.dumps(list_devices()))"],
     {
       cwd: pythonDir,
       stdio: ["ignore", "pipe", "pipe"],
@@ -30,8 +30,9 @@ export const getDevices = createServerFn({ method: "GET" }).handler(async (): Pr
   }
 
   try {
-    return JSON.parse(stdout.trim().split("\n").pop() ?? "[]")
+    const parsed = JSON.parse(stdout.trim().split("\n").pop() ?? "[]") as DeviceInfo[]
+    return parsed
   } catch {
     return [{ id: "cpu", name: "CPU (fallback)", type: "cpu" }]
   }
-})
+}

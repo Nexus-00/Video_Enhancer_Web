@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
+from typing import Callable
 
 import requests
-from tqdm import tqdm
 
 
 WEIGHTS_DIR = Path(__file__).resolve().parent.parent.parent / "weights"
@@ -22,49 +23,132 @@ MODELS = {
         "filename": "RealESRGAN_x4plus_anime_6B.pth",
     },
     "NAFNet-GoPro-width64": {
-        "url": "https://github.com/megvii-research/NAFNet/releases/download/v0.1/NAFNet-GoPro-width64.pth",
+        "url": "https://huggingface.co/nyanko7/nafnet-models/resolve/main/NAFNet-GoPro-width64.pth",
         "filename": "NAFNet-GoPro-width64.pth",
     },
     "RIFE_v4.25": {
-        "url": "https://github.com/hzwer/Practical-RIFE/releases/download/v4.25/flownet.pkl",
+        # RIFE v4.25 flownet.pkl weights mirrored on HuggingFace.
+        # Original source: Practical-RIFE release (Google Drive/Baidu).
+        "url": "https://huggingface.co/LeonJoe13/Sonic/resolve/main/RIFE/flownet.pkl",
         "filename": "RIFE_v4.25_flownet.pkl",
+    },
+    "FLAVR_2x": {
+        # FLAVR pretrained weights are hosted on Google Drive; this is a placeholder.
+        # Download the 2x model manually from the FLAVR repo and place it in python/weights/FLAVR_2x.pth
+        "url": "",
+        "filename": "FLAVR_2x.pth",
     },
 }
 
 
-def download_file(url: str, dest: Path) -> None:
-    """Download a file with a progress bar."""
+def emit(event: dict) -> None:
+    """Emit a JSON line that the web server can forward to the browser."""
+    print(json.dumps(event), flush=True)
+
+
+def download_file(url: str, dest: Path, on_progress: Callable[[int, int], None] | None = None, timeout: int = 300) -> None:
+    """Download a file, calling on_progress(chunks_downloaded, total_chunks)."""
     dest.parent.mkdir(parents=True, exist_ok=True)
-    if dest.exists():
-        print(f"[skip] {dest.name} already exists.")
-        return
+    response = requests.get(url, stream=True, timeout=timeout)
+    response.raise_for_status()
 
-    print(f"[download] {url} -> {dest}")
-    try:
-        response = requests.get(url, stream=True, timeout=60)
-        response.raise_for_status()
-
-        total = int(response.headers.get("content-length", 0))
-        with open(dest, "wb") as f, tqdm(
-            total=total, unit="B", unit_scale=True, desc=dest.name
-        ) as bar:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-                    bar.update(len(chunk))
-    except Exception as exc:
-        print(f"[warn] Failed to download {dest.name}: {exc}")
+    total = int(response.headers.get("content-length", 0))
+    chunk_size = 8192
+    downloaded = 0
+    with open(dest, "wb") as f:
+        for chunk in response.iter_content(chunk_size=chunk_size):
+            if chunk:
+                f.write(chunk)
+                downloaded += len(chunk)
+                if on_progress:
+                    on_progress(downloaded, total)
+    if on_progress:
+        on_progress(downloaded, total or downloaded)
 
 
 def download_all(force: bool = False) -> None:
-    """Download all default models."""
+    """Download all default models, emitting progress events as JSON lines."""
     WEIGHTS_DIR.mkdir(parents=True, exist_ok=True)
-    for key, info in MODELS.items():
+    items = list(MODELS.items())
+    total = len(items)
+
+    emit({"type": "start", "total": total})
+
+    for index, (key, info) in enumerate(items):
         dest = WEIGHTS_DIR / info["filename"]
-        if force and dest.exists():
-            dest.unlink()
-        download_file(info["url"], dest)
-    print("[done] Model download pass finished.")
+        emit({"type": "model", "index": index, "name": key, "status": "pending", "total": total})
+
+        if dest.exists() and not force:
+            emit({
+                "type": "model",
+                "index": index,
+                "name": key,
+                "status": "skipped",
+                "message": "already exists",
+                "total": total,
+                "percent": 100,
+                "overall": int(round((index + 1) / total * 100)),
+            })
+            continue
+
+        if not info["url"]:
+            emit({
+                "type": "model",
+                "index": index,
+                "name": key,
+                "status": "skipped",
+                "message": "no automatic download URL; please download it manually",
+                "total": total,
+                "percent": 0,
+                "overall": int(round((index + 1) / total * 100)),
+            })
+            continue
+
+        emit({
+            "type": "model",
+            "index": index,
+            "name": key,
+            "status": "downloading",
+            "total": total,
+            "percent": 0,
+        })
+
+        try:
+            def on_progress(downloaded: int, total_bytes: int) -> None:
+                percent = (downloaded / total_bytes * 100) if total_bytes else 0
+                overall = ((index + percent / 100) / total) * 100
+                emit({
+                    "type": "progress",
+                    "index": index,
+                    "name": key,
+                    "percent": round(percent, 2),
+                    "downloaded": downloaded,
+                    "total": total_bytes,
+                    "overall": round(overall, 2),
+                })
+
+            download_file(info["url"], dest, on_progress=on_progress)
+            emit({
+                "type": "model",
+                "index": index,
+                "name": key,
+                "status": "done",
+                "total": total,
+                "percent": 100,
+                "overall": int(round((index + 1) / total * 100)),
+            })
+        except Exception as exc:
+            emit({
+                "type": "model",
+                "index": index,
+                "name": key,
+                "status": "error",
+                "message": str(exc),
+                "total": total,
+                "overall": int(round((index + 1) / total * 100)),
+            })
+
+    emit({"type": "done", "total": total})
 
 
 if __name__ == "__main__":

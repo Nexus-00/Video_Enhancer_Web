@@ -12,6 +12,9 @@ web/.output/
 web/dist/
 web/.tanstack-start/
 
+# Generated files
+*.gen.ts
+
 # Logs
 *.log
 npm-debug.log*

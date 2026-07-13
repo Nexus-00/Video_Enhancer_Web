@@ -1,12 +1,15 @@
 import { mkdirSync } from "node:fs"
-import { dirname, join } from "node:path"
-import { fileURLToPath } from "node:url"
+import { dirname, join, resolve } from "node:path"
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
+const root = resolve(process.cwd(), "..")
 const DB_PATH = process.env.AI_VIDEO_ENHANCER_DB
-  ?? join(__dirname, "..", "..", "..", "data", "jobs.db")
+  ?? join(root, "data", "jobs.db")
 
-mkdirSync(dirname(DB_PATH), { recursive: true })
+try {
+  mkdirSync(dirname(DB_PATH), { recursive: true })
+} catch (err: any) {
+  if (err?.code !== "EEXIST") throw err
+}
 
 async function createDb(): Promise<any> {
   try {
@@ -21,11 +24,13 @@ async function createDb(): Promise<any> {
           current_frame INTEGER,
           total_frames INTEGER,
           eta_seconds INTEGER,
+          preview_base64 TEXT,
           device TEXT,
           options TEXT,
           input_path TEXT,
           output_path TEXT,
           error TEXT,
+          retry_count INTEGER DEFAULT 0,
           created_at INTEGER,
           updated_at INTEGER
       );
@@ -39,6 +44,14 @@ async function createDb(): Promise<any> {
           created_at INTEGER
       );
     `)
+    // Add columns introduced after the initial schema; ignore if they already exist.
+    for (const col of ["ALTER TABLE jobs ADD COLUMN preview_base64 TEXT;", "ALTER TABLE jobs ADD COLUMN retry_count INTEGER DEFAULT 0;"]) {
+      try {
+        db.exec(col)
+      } catch {
+        // Column already exists; safe to ignore.
+      }
+    }
     return db
   } catch {
     const { Database } = await import("bun:sqlite")
@@ -52,11 +65,13 @@ async function createDb(): Promise<any> {
           current_frame INTEGER,
           total_frames INTEGER,
           eta_seconds INTEGER,
+          preview_base64 TEXT,
           device TEXT,
           options TEXT,
           input_path TEXT,
           output_path TEXT,
           error TEXT,
+          retry_count INTEGER DEFAULT 0,
           created_at INTEGER,
           updated_at INTEGER
       );
@@ -70,6 +85,13 @@ async function createDb(): Promise<any> {
           created_at INTEGER
       );
     `)
+    for (const col of ["ALTER TABLE jobs ADD COLUMN preview_base64 TEXT;", "ALTER TABLE jobs ADD COLUMN retry_count INTEGER DEFAULT 0;"]) {
+      try {
+        db.exec(col)
+      } catch {
+        // Column already exists; safe to ignore.
+      }
+    }
     return db
   }
 }
@@ -86,8 +108,8 @@ export function getJob(id: string): JobRow | null {
 
 export function insertJob(job: JobRow) {
   db.prepare(
-    `INSERT INTO jobs (id, status, stage, progress, current_frame, total_frames, eta_seconds, device, options, input_path, output_path, error, created_at, updated_at)
-     VALUES ($id, $status, $stage, $progress, $currentFrame, $totalFrames, $etaSeconds, $device, $options, $inputPath, $outputPath, $error, $createdAt, $updatedAt)`
+    `INSERT INTO jobs (id, status, stage, progress, current_frame, total_frames, eta_seconds, preview_base64, device, options, input_path, output_path, error, retry_count, created_at, updated_at)
+     VALUES ($id, $status, $stage, $progress, $currentFrame, $totalFrames, $etaSeconds, $previewBase64, $device, $options, $inputPath, $outputPath, $error, $retryCount, $createdAt, $updatedAt)`
   ).run({
     $id: job.id,
     $status: job.status,
@@ -96,11 +118,13 @@ export function insertJob(job: JobRow) {
     $currentFrame: job.current_frame,
     $totalFrames: job.total_frames,
     $etaSeconds: job.eta_seconds,
+    $previewBase64: job.preview_base64,
     $device: job.device,
     $options: job.options,
     $inputPath: job.input_path,
     $outputPath: job.output_path,
     $error: job.error,
+    $retryCount: job.retry_count,
     $createdAt: job.created_at,
     $updatedAt: job.updated_at,
   })
@@ -147,4 +171,22 @@ export function getProgressLogs(jobId: string) {
     message: string
     created_at: number
   }>
+}
+
+export function listJobs(): JobRow[] {
+  return db
+    .prepare("SELECT * FROM jobs ORDER BY created_at DESC")
+    .all() as JobRow[]
+}
+
+export function listJobsByStatus(statuses: string[]): JobRow[] {
+  if (statuses.length === 0) return listJobs()
+  const placeholders = statuses.map((_, i) => `$s${i}`).join(", ")
+  const params: Record<string, string> = {}
+  for (let i = 0; i < statuses.length; i++) {
+    params[`$s${i}`] = statuses[i]
+  }
+  return db
+    .prepare(`SELECT * FROM jobs WHERE status IN (${placeholders}) ORDER BY created_at DESC`)
+    .all(params) as JobRow[]
 }

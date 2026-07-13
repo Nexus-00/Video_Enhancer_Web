@@ -8,24 +8,32 @@ export function useJobProgress(jobId: string | null) {
     if (!jobId) return
 
     let cancelled = false
-    const poll = async () => {
-      try {
-        const res = await fetch(`/api/jobs/${jobId}`)
-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
-        const data = await res.json()
-        if (!cancelled) {
+    let eventSource: EventSource | null = null
+
+    const connect = () => {
+      eventSource = new EventSource(`/api/jobs/${jobId}?stream=1`)
+      eventSource.onmessage = (event) => {
+        if (cancelled) return
+        try {
+          const data = JSON.parse(event.data) as JobRow
           setJob(data)
+          if (data.status === 'completed' || data.status === 'failed') {
+            eventSource?.close()
+          }
+        } catch (err) {
+          console.error('Failed to parse SSE message:', err)
         }
-      } catch (err) {
-        console.error('Failed to poll job:', err)
+      }
+      eventSource.onerror = (err) => {
+        console.error('SSE error:', err)
+        eventSource?.close()
       }
     }
 
-    poll()
-    const interval = setInterval(poll, 1000)
+    connect()
     return () => {
       cancelled = true
-      clearInterval(interval)
+      eventSource?.close()
     }
   }, [jobId])
 

@@ -11,13 +11,13 @@ export function ProgressCard({ job }: ProgressCardProps) {
   const percent = Math.round(progress * 100)
 
   return (
-    <div className="bg-gray-900 rounded-xl p-5 space-y-3">
+    <div className="bg-gray-900 p-5 space-y-3">
       <div className="flex justify-between items-center">
         <h2 className="text-lg font-semibold">Processing</h2>
         <span className="text-sm text-gray-400 capitalize">{job.status}</span>
       </div>
 
-      <div className="h-3 bg-gray-800 rounded-full overflow-hidden">
+      <div className="h-3 bg-gray-800 overflow-hidden">
         <div
           className="h-full bg-blue-500 transition-all duration-500"
           style={{ width: `${percent}%` }}

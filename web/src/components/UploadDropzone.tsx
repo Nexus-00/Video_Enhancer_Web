@@ -26,7 +26,7 @@ export function UploadDropzone({ file, onFileSelect }: UploadDropzoneProps) {
     <div
       onDrop={handleDrop}
       onDragOver={(e) => e.preventDefault()}
-      className="border-2 border-dashed border-gray-700 rounded-xl p-8 text-center cursor-pointer hover:border-blue-500 transition-colors"
+      className="border-2 border-dashed border-gray-700 p-8 text-center cursor-pointer hover:border-blue-500 transition-colors"
     >
       <input
         type="file"

@@ -7,6 +7,7 @@ import { ResultPlayer } from '~/components/ResultPlayer'
 import { UploadDropzone } from '~/components/UploadDropzone'
 import { useJobProgress } from '~/hooks/useJobProgress'
 import { ModelManager } from '~/components/ModelManager'
+import { JobsList } from '~/components/JobsList'
 import type { JobOptions } from '~/types'
 
 export const Route = createFileRoute('/')({
@@ -15,10 +16,10 @@ export const Route = createFileRoute('/')({
 
 const defaultOptions: JobOptions = {
   device: 'cpu',
-  targetResolution: '1920x1080',
   targetFps: 60,
   interpolate: 2,
-  upscale: true,
+  interpolationModel: 'rife',
+  upscaleScale: 4,
   deblur: true,
   removeDuplicates: true,
   duplicateThreshold: 10,
@@ -51,33 +52,41 @@ function Home() {
   }
 
   return (
-    <main className="max-w-md mx-auto px-4 py-6 space-y-6 md:max-w-2xl">
-      <header className="text-center space-y-1">
+    <main className="max-w-[1920px] mx-auto px-4 py-6">
+      <header className="text-center space-y-1 mb-6">
         <h1 className="text-3xl font-bold text-blue-400">AI Video Enhancer</h1>
         <p className="text-gray-400 text-sm">Upscale, deblur, and interpolate your videos</p>
       </header>
 
-      <UploadDropzone file={file} onFileSelect={setFile} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <div className="space-y-6">
+          <UploadDropzone file={file} onFileSelect={setFile} />
 
-      <ConfigPanel options={options} onChange={setOptions} />
+          <ConfigPanel options={options} onChange={setOptions} />
 
-      <button
-        onClick={handleStart}
-        disabled={!file || uploading}
-        className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors"
-      >
-        {uploading ? 'Uploading...' : 'Start processing'}
-      </button>
+          <button
+            onClick={handleStart}
+            disabled={!file || uploading}
+            className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold py-3 transition-colors"
+          >
+            {uploading ? 'Uploading...' : 'Start processing'}
+          </button>
 
-      {job && (
-        <>
-          <ProgressCard job={job} />
-          <LivePreview job={job} />
-        </>
-      )}
+          {job && (
+            <>
+              <ProgressCard job={job} />
+              <LivePreview job={job} />
+            </>
+          )}
 
-      <ModelManager />
-      <ResultPlayer job={job} />
+          <ModelManager />
+          <ResultPlayer job={job} />
+        </div>
+
+        <div className="lg:sticky lg:top-6">
+          <JobsList />
+        </div>
+      </div>
     </main>
   )
 }

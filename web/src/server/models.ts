@@ -1,42 +1,41 @@
-import { createServerFn } from "@tanstack/react-start"
-import { dirname, join, resolve } from "node:path"
-import { fileURLToPath } from "node:url"
-const __dirname = dirname(fileURLToPath(import.meta.url))
+import { spawn } from "node:child_process"
+import { readdir } from "node:fs/promises"
+import { join, resolve } from "node:path"
+import type { ChildProcess } from "node:child_process"
 
-const pythonDir = resolve(__dirname, "..", "..", "..", "python")
+const webDir = process.cwd()
+const root = resolve(webDir, "..")
+const pythonDir = join(root, "python")
+const pythonExe = process.platform === "win32" ? join(pythonDir, ".venv", "Scripts", "python.exe") : join(pythonDir, ".venv", "bin", "python")
 
-export const downloadModels = createServerFn({ method: "POST" }).handler(async () => {
-  const weightsDir = join(pythonDir, "weights")
-  const proc = Bun.spawn(
-    ["uv", "run", "python", "src/scripts/download_models.py"],
-    {
-      cwd: pythonDir,
-      stdout: "pipe",
-      stderr: "pipe",
-    }
-  )
+export interface DownloadProgressEvent {
+  type: "start" | "progress" | "model" | "done"
+  index?: number
+  name?: string
+  status?: "pending" | "downloading" | "done" | "skipped" | "error"
+  percent?: number
+  overall?: number
+  downloaded?: number
+  total?: number
+  message?: string
+}
 
-  // Detach from the waiting promise so the request returns immediately.
-  proc.exited.then((code) => {
-    if (code !== 0) {
-      console.error("[models] Download process exited with code", code)
-    } else {
-      console.log("[models] Downloads finished")
-    }
+export function spawnModelDownload(force = false): ChildProcess {
+  const args = [pythonExe, "src/scripts/download_models.py"]
+  if (force) args.push("--force")
+
+  return spawn(args[0], args.slice(1), {
+    cwd: pythonDir,
+    stdio: ["ignore", "pipe", "pipe"],
   })
+}
 
-  return { started: true, weightsDir }
-})
-
-export const listModelFiles = createServerFn({ method: "GET" }).handler(async () => {
+export async function listModelFiles(): Promise<string[]> {
   const weightsDir = join(pythonDir, "weights")
   try {
-    const files = await import("node:fs/promises")
-    const entries = await files.readdir(weightsDir, { withFileTypes: true })
-    return entries
-      .filter((e) => e.isFile())
-      .map((e) => e.name)
+    const entries = await readdir(weightsDir, { withFileTypes: true })
+    return entries.filter((e) => e.isFile()).map((e) => e.name)
   } catch {
     return []
   }
-})
+}

@@ -21,11 +21,13 @@ CREATE TABLE IF NOT EXISTS jobs (
     current_frame INTEGER,
     total_frames INTEGER,
     eta_seconds INTEGER,
+    preview_base64 TEXT,
     device TEXT,
     options TEXT,
     input_path TEXT,
     output_path TEXT,
     error TEXT,
+    retry_count INTEGER DEFAULT 0,
     created_at INTEGER,
     updated_at INTEGER
 );

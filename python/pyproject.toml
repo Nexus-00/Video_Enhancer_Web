@@ -12,12 +12,9 @@ dependencies = [
     "scikit-image",
     "requests",
     "tqdm",
-]
-
-[project.optional-dependencies]
-ml = [
     "torch",
     "torchvision",
+    "safetensors>=0.8.0",
 ]
 
 [build-system]
@@ -26,3 +23,11 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu126" }
+torchvision = { index = "pytorch-cu126" }
